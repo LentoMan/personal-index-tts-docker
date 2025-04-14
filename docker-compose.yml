@@ -1,0 +1,23 @@
+include:
+  - docker-compose.networks.yml
+services:
+  offline-index-tts-webui:
+    environment:
+      OFFLINE_MODE: true
+    extends:
+      file: docker-compose.base.yml
+      service: index-tts-webui
+    depends_on:
+      - index-tts-webui-tunnel
+    networks:
+      - index-tts-webui-internal-network
+  index-tts-webui-tunnel:
+    build:
+      dockerfile: docker/tunnel/Dockerfile
+    image: index_tts_web_ui_tunnel
+    ports:
+      - "${WEBUI_PORT}:${WEBUI_PORT}"
+    networks:
+      - index-tts-webui-external-network
+      - index-tts-webui-internal-network
+    command: [ "socat", "tcp-listen:${WEBUI_PORT},reuseaddr,fork", "tcp:offline-index-tts-webui:${WEBUI_PORT}" ]

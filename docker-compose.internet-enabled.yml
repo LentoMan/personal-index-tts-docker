@@ -1,0 +1,11 @@
+include:
+  - docker-compose.networks.yml
+services:
+  internet-enabled-index-tts-webui:
+    ports:
+    - "${WEBUI_PORT}:${WEBUI_PORT}"
+    extends:
+      file: docker-compose.base.yml
+      service: index-tts-webui
+    networks:
+      - index-tts-webui-external-network

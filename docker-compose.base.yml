@@ -1,0 +1,47 @@
+services:
+  index-tts-webui:
+    build:
+      dockerfile: docker/webui/Dockerfile
+    image: "index_tts_web_ui_python"
+    entrypoint: [ "/opt/docker-entrypoint.sh"]
+    command: [ "/opt/webui/webui.sh","--server-name=0.0.0.0" ]
+    env_file:
+      - path: ./user.env
+        required: true
+      - path: ./runtime.env
+        required: true
+    tty: true
+    stdin_open: true
+    environment:
+      CONTAINER_TMPDIR: ${CONTAINER_WEBUI_ROOT}/tmp
+      CONTAINER_HOME: ${CONTAINER_WEBUI_ROOT}/cache/home
+    volumes:
+      # Mount main directory as readonly
+      - type: bind
+        source: ${HOST_WEBUI_DIRECTORY}
+        target: ${CONTAINER_WEBUI_ROOT}
+
+      # Mount start script
+      - type: bind
+        source: ./docker/webui/docker-entrypoint.sh
+        target: /opt/docker-entrypoint.sh
+        read_only: true
+
+      # Mount webui script
+      - type: bind
+        source: ./docker/webui/webui.sh
+        target: ${CONTAINER_WEBUI_ROOT}/webui.sh
+        read_only: true
+
+      # Mount webui-user script
+      - type: bind
+        source: ./webui-user.sh
+        target: ${CONTAINER_WEBUI_ROOT}/webui-user.sh
+        read_only: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]

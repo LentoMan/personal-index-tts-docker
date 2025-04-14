@@ -1,0 +1,6 @@
+networks:
+  index-tts-webui-external-network:
+    driver: bridge
+  index-tts-webui-internal-network:
+    driver: bridge
+    internal: true # Internal network with no external (internet) access

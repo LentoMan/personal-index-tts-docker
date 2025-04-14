@@ -1,0 +1,3 @@
+services:
+  offline-index-tts-webui:
+# Check the docker-compose.override.yml.sample and add a volume section here if you want to override directories in offline mode
