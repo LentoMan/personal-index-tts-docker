@@ -4,7 +4,7 @@ services:
       dockerfile: docker/webui/Dockerfile
     image: "index_tts_web_ui_python"
     entrypoint: [ "/opt/docker-entrypoint.sh"]
-    command: [ "/opt/webui/webui.sh","--server-name=0.0.0.0" ]
+    command: [ "/opt/webui/webui.sh","--host=0.0.0.0" ]
     env_file:
       - path: ./user.env
         required: true

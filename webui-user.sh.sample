@@ -1,5 +1,8 @@
 # This is a sample file and should not be modified, you can change these parameters in webui-user.sh
 
+# Checkpoint to use, set to either "1.0" or "1.5", default is "1.0"
+#checkpoint="1.5"
+
 # Uncomment this temporarily and run with internet if you need to reinstall or update torch
 #reinstall_torch=true
 

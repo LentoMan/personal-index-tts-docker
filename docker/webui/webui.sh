@@ -14,6 +14,12 @@ then
     source "$SCRIPT_DIR"/webui-user.sh
 fi
 
+# Index-TTS Checkpoint to use, either "1.0" or "1.5"
+if [[ -z "${checkpoint}" ]]
+then
+    checkpoint="1.0"
+fi
+
 # If $venv_dir is "-", then disable venv support
 use_venv=1
 if [[ $venv_dir == "-" ]]; then
@@ -59,7 +65,7 @@ fi
 
 if [[ -z "${LAUNCH_SCRIPT}" ]]
 then
-    LAUNCH_SCRIPT="webui_patched.py"
+    LAUNCH_SCRIPT="webui.py"
 fi
 
 # this script cannot be run as root by default
@@ -183,42 +189,101 @@ then
     extra_pip_params="-q"
 fi
 
-pip install $extra_pip_params $torch_pip_params torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+pip install $extra_pip_params $torch_pip_params torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 pip install $extra_pip_params -r requirements.txt
 pip install $extra_pip_params deepspeed
 printf "\n%s\n" "${delimiter}"
 
-printf "Checking for models..."
+case "${checkpoint}" in
+    1.0)
+        ckpt_folder="checkpoints"
 
-if [[ ! -f "checkpoints/bigvgan_discriminator.pth" ]]
-then
-    wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/bigvgan_discriminator.pth -P checkpoints 
-fi
+        printf "Checking \"${ckpt_folder}\" directory for models..."
 
-if [[ ! -f "checkpoints/bigvgan_generator.pth" ]]
-then
-    wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/bigvgan_generator.pth -P checkpoints
-fi
+        if [[ ! -f "${ckpt_folder}/config.yaml" ]]
+        then
+            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/config.yaml -P $ckpt_folder
+            sed -i 's|bpe_model: checkpoints/bpe.model|bpe_model: bpe.model|' $ckpt_folder/config.yaml
+        fi
 
-if [[ ! -f "checkpoints/bpe.model" ]]
-then
-    wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/bpe.model -P checkpoints
-fi
+        if [[ ! -f "${ckpt_folder}/bigvgan_discriminator.pth" ]]
+        then
+            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/bigvgan_discriminator.pth -P $ckpt_folder 
+        fi
 
-if [[ ! -f "checkpoints/dvae.pth" ]]
-then
-    wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/dvae.pth -P checkpoints
-fi
+        if [[ ! -f "${ckpt_folder}/bigvgan_generator.pth" ]]
+        then
+            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/bigvgan_generator.pth -P $ckpt_folder
+        fi
 
-if [[ ! -f "checkpoints/gpt.pth" ]]
-then
-    wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/gpt.pth -P checkpoints
-fi
+        if [[ ! -f "${ckpt_folder}/bpe.model" ]]
+        then
+            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/bpe.model -P $ckpt_folder
+        fi
 
-if [[ ! -f "checkpoints/unigram_12000.vocab" ]]
-then
-    wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/unigram_12000.vocab -P checkpoints
-fi
+        if [[ ! -f "${ckpt_folder}/dvae.pth" ]]
+        then
+            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/dvae.pth -P $ckpt_folder
+        fi
+
+        if [[ ! -f "${ckpt_folder}/gpt.pth" ]]
+        then
+            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/gpt.pth -P $ckpt_folder
+        fi
+
+        if [[ ! -f "${ckpt_folder}/unigram_12000.vocab" ]]
+        then
+            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/unigram_12000.vocab -P $ckpt_folder
+        fi
+        ;;
+    1.5)
+        ckpt_folder="checkpoints15"
+
+        printf "Checking \"${ckpt_folder}\" directory for models..."
+
+        if [ ! -d "$ckpt_folder" ]; then
+            echo Creating \"$ckpt_folder\" directory.
+            mkdir -p "$ckpt_folder"
+        fi
+
+        if [[ ! -f "${ckpt_folder}/bigvgan_discriminator.pth" ]]
+        then
+            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/bigvgan_discriminator.pth -P $ckpt_folder
+        fi
+
+        if [[ ! -f "${ckpt_folder}/bigvgan_generator.pth" ]]
+        then
+            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/bigvgan_generator.pth -P $ckpt_folder
+        fi
+
+        if [[ ! -f "${ckpt_folder}/bpe.model" ]]
+        then
+            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/bpe.model -P $ckpt_folder
+        fi
+
+        if [[ ! -f "${ckpt_folder}/dvae.pth" ]]
+        then
+            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/dvae.pth -P $ckpt_folder
+        fi
+
+        if [[ ! -f "${ckpt_folder}/gpt.pth" ]]
+        then
+            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/gpt.pth -P $ckpt_folder
+        fi
+
+        if [[ ! -f "${ckpt_folder}/unigram_12000.vocab" ]]
+        then
+            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/unigram_12000.vocab -P $ckpt_folder
+        fi
+
+        if [[ ! -f "${ckpt_folder}/config.yaml" ]]
+        then
+            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/config.yaml -P $ckpt_folder
+        fi
+        ;;
+esac
+
+    printf "\n%s\n" "${delimiter}"
 
 # Try using TCMalloc on Linux
 prepare_tcmalloc() {
@@ -266,15 +331,19 @@ prepare_tcmalloc() {
     fi
 }
 
-printf "\n%s\n" "${delimiter}"
-printf "Copying webui.py to webui_patched.py\n"
-cp webui.py webui_patched.py
-printf "Changing server_name="127.0.0.1" to server_name="0.0.0.0" in webui_patched.py"
-sed -i 's/server_name="127.0.0.1"/server_name="0.0.0.0"/' webui_patched.py
+build_lock_file="indextts/BigVGAN/alias_free_activation/cuda/build/lock"
 
+# If nvcc compilation is aborted, it will leave a lock file which is used to prevent parallel builds, the lock file must be deleted to allow launch
+if [[ -f "$build_lock_file" ]]
+then
+    printf "\n%s\n" "${delimiter}"
+    printf "Removing nvcc build lock file at ${build_lock_file}"
+    rm $build_lock_file
+    printf "\n%s\n" "${delimiter}"
+fi
 
 printf "\n%s\n" "${delimiter}"
 printf "Launching ${LAUNCH_SCRIPT}..."
 printf "\n%s\n" "${delimiter}"
 prepare_tcmalloc
-"${python_cmd}" -u "${LAUNCH_SCRIPT}" "$@"
+"${python_cmd}" -u "${LAUNCH_SCRIPT}" "$@" "--model_dir" "${ckpt_folder}"
