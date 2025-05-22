@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 
-FROM library/ubuntu:24.04
+FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -24,5 +24,4 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
             build-essential \
             inetutils-ping \
             ffmpeg \
-            wget \
-            nvidia-cuda-toolkit
+            wget
