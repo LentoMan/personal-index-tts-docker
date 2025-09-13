@@ -31,6 +31,8 @@ sed -i "s/HOST_WEBUI_DIRECTORY=.*/HOST_WEBUI_DIRECTORY=$repo_dir/" .env
 if [ ! -d "$repo_dir" ]; then
   echo Checking out \"$repo_url\" into \"$repo_dir\"
   git clone $repo_url
+  echo Switching to v1.5.0 tag for \"$repo_url\"
+  (cd $repo_dir && git checkout v1.5.0)
 else
   echo Skipping checkout, repo directory \"$repo_dir\" is already present.
 fi
