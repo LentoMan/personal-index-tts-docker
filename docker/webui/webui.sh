@@ -14,16 +14,16 @@ then
     source "$SCRIPT_DIR"/webui-user.sh
 fi
 
-# Index-TTS Checkpoint to use, either "1.0" or "1.5"
+# Index-TTS Checkpoint to use
 if [[ -z "${checkpoint}" ]]
 then
-    checkpoint="1.0"
+    checkpoint="IndexTeam/IndexTTS-2"
 fi
 
-# If $venv_dir is "-", then disable venv support
-use_venv=1
-if [[ $venv_dir == "-" ]]; then
-  use_venv=0
+# Checkpoint installation command
+if [[ -z "${ckpt_install_cmd}" ]]
+then
+    ckpt_install_cmd="hf download ${checkpoint} --local-dir=checkpoints"
 fi
 
 # Set defaults
@@ -42,11 +42,21 @@ fi
 # python3 executable
 if [[ -z "${python_cmd}" ]]
 then
-  python_cmd="python3.10"
+    python_cmd="python3.11"
 fi
 if [[ ! -x "$(command -v "${python_cmd}")" ]]
 then
-  python_cmd="python3"
+    python_cmd="python3"
+fi
+
+if [[ -z "${pip_cmd}" ]]
+then
+    pip_cmd="pip3.11"
+fi
+
+if [[ -z "${uv_cmd}" ]]
+then
+    uv_cmd="uv"
 fi
 
 # git executable
@@ -57,10 +67,10 @@ else
     export GIT_PYTHON_GIT_EXECUTABLE="${GIT}"
 fi
 
-# python3 venv without trailing slash (defaults to ${install_dir}/${clone_dir}/venv)
+# python3 uv .venv without trailing slash (defaults to ${install_dir}/${clone_dir}/.venv)
 if [[ -z "${venv_dir}" ]] && [[ $use_venv -eq 1 ]]
 then
-    venv_dir="venv"
+    venv_dir=".venv"
 fi
 
 if [[ -z "${LAUNCH_SCRIPT}" ]]
@@ -79,6 +89,12 @@ do
         *) break;;
     esac
 done
+
+# disable gradio analytics
+export GRADIO_ANALYTICS_ENABLED="False"
+
+# disable huggingface hub telemetry
+export HF_HUB_DISABLE_TELEMETRY=1
 
 # Disable sentry logging
 export ERROR_REPORTING=FALSE
@@ -135,155 +151,63 @@ do
     fi
 done
 
-if [[ $use_venv -eq 1 ]] && ! "${python_cmd}" -c "import venv" &>/dev/null
+# Add local bin to path (required for pip)
+PATH=$HOME/.local/bin:$PATH
+
+# Pip installation, see: https://pip.pypa.io/en/stable/installation/
+if ! command -v "${pip_cmd}" &> /dev/null
 then
     printf "\n%s\n" "${delimiter}"
-    printf "\e[1m\e[31mERROR: python3-venv is not installed, aborting...\e[0m"
-    printf "\n%s\n" "${delimiter}"
-    exit 1
-fi
-
-cd "${install_dir}"/ || { printf "\e[1m\e[31mERROR: Can't cd to %s/, aborting...\e[0m" "${install_dir}"; exit 1; }
-
-if [[ $use_venv -eq 1 ]] && [[ -z "${VIRTUAL_ENV}" ]];
-then
-    printf "\n%s\n" "${delimiter}"
-    printf "Create and activate python venv"
-    printf "\n%s\n" "${delimiter}"
-    cd "${install_dir}"/"${clone_dir}"/ || { printf "\e[1m\e[31mERROR: Can't cd to %s/%s/, aborting...\e[0m" "${install_dir}" "${clone_dir}"; exit 1; }
-    if [[ ! -d "${venv_dir}" ]]
-    then
-        "${python_cmd}" -m venv "${venv_dir}"
-        "${venv_dir}"/bin/python -m pip install --upgrade pip
-        first_launch=1
-    fi
-    # shellcheck source=/dev/null
-    if [[ -f "${venv_dir}"/bin/activate ]]
-    then
-        source "${venv_dir}"/bin/activate
-        # ensure use of python from venv
-        python_cmd="${venv_dir}"/bin/python
-    else
-        printf "\n%s\n" "${delimiter}"
-        printf "\e[1m\e[31mERROR: Cannot activate python venv, aborting...\e[0m"
-        printf "\n%s\n" "${delimiter}"
-        exit 1
-    fi
-else
-    printf "\n%s\n" "${delimiter}"
-    printf "python venv already activate or run without venv: ${VIRTUAL_ENV}"
+    printf "Installing pip...\n"
+    "${python_cmd}" -m ensurepip --upgrade
+    printf "Pip installation complete..."
     printf "\n%s\n" "${delimiter}"
 fi
 
-printf "\n%s\n" "${delimiter}"
-printf "Checking and installing python dependencies..."
-
-if [[ "${reinstall_torch}" == "true" ]]
+# uv installation
+if ! command -v "${uv_cmd}"  &> /dev/null
 then
-    echo "Reinstalling torch, to skip this in the future, comment or set reinstall_torch to false in webui-user.sh"
-    torch_pip_params="--force-reinstall --upgrade"
-fi
-
-if [[ "${quiet_pip}" == "true" ]]
-then
-    extra_pip_params="-q"
-fi
-
-pip install $extra_pip_params $torch_pip_params torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
-pip install $extra_pip_params -r requirements.txt
-pip install $extra_pip_params deepspeed
-printf "\n%s\n" "${delimiter}"
-
-case "${checkpoint}" in
-    1.0)
-        ckpt_folder="checkpoints"
-
-        printf "Checking \"${ckpt_folder}\" directory for models..."
-
-        if [[ ! -f "${ckpt_folder}/config.yaml" ]]
-        then
-            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/config.yaml -P $ckpt_folder
-            sed -i 's|bpe_model: checkpoints/bpe.model|bpe_model: bpe.model|' $ckpt_folder/config.yaml
-        fi
-
-        if [[ ! -f "${ckpt_folder}/bigvgan_discriminator.pth" ]]
-        then
-            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/bigvgan_discriminator.pth -P $ckpt_folder 
-        fi
-
-        if [[ ! -f "${ckpt_folder}/bigvgan_generator.pth" ]]
-        then
-            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/bigvgan_generator.pth -P $ckpt_folder
-        fi
-
-        if [[ ! -f "${ckpt_folder}/bpe.model" ]]
-        then
-            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/bpe.model -P $ckpt_folder
-        fi
-
-        if [[ ! -f "${ckpt_folder}/dvae.pth" ]]
-        then
-            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/dvae.pth -P $ckpt_folder
-        fi
-
-        if [[ ! -f "${ckpt_folder}/gpt.pth" ]]
-        then
-            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/gpt.pth -P $ckpt_folder
-        fi
-
-        if [[ ! -f "${ckpt_folder}/unigram_12000.vocab" ]]
-        then
-            wget https://huggingface.co/IndexTeam/Index-TTS/resolve/main/unigram_12000.vocab -P $ckpt_folder
-        fi
-        ;;
-    1.5)
-        ckpt_folder="checkpoints15"
-
-        printf "Checking \"${ckpt_folder}\" directory for models..."
-
-        if [ ! -d "$ckpt_folder" ]; then
-            echo Creating \"$ckpt_folder\" directory.
-            mkdir -p "$ckpt_folder"
-        fi
-
-        if [[ ! -f "${ckpt_folder}/bigvgan_discriminator.pth" ]]
-        then
-            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/bigvgan_discriminator.pth -P $ckpt_folder
-        fi
-
-        if [[ ! -f "${ckpt_folder}/bigvgan_generator.pth" ]]
-        then
-            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/bigvgan_generator.pth -P $ckpt_folder
-        fi
-
-        if [[ ! -f "${ckpt_folder}/bpe.model" ]]
-        then
-            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/bpe.model -P $ckpt_folder
-        fi
-
-        if [[ ! -f "${ckpt_folder}/dvae.pth" ]]
-        then
-            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/dvae.pth -P $ckpt_folder
-        fi
-
-        if [[ ! -f "${ckpt_folder}/gpt.pth" ]]
-        then
-            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/gpt.pth -P $ckpt_folder
-        fi
-
-        if [[ ! -f "${ckpt_folder}/unigram_12000.vocab" ]]
-        then
-            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/unigram_12000.vocab -P $ckpt_folder
-        fi
-
-        if [[ ! -f "${ckpt_folder}/config.yaml" ]]
-        then
-            wget https://huggingface.co/IndexTeam/IndexTTS-1.5/resolve/main/config.yaml -P $ckpt_folder
-        fi
-        ;;
-esac
-
     printf "\n%s\n" "${delimiter}"
+    printf "Installing uv using pip...\n"
+    "${pip_cmd}" install -U uv
+    printf "UV installation complete..."
+    printf "\n%s\n" "${delimiter}"
+fi
+
+cd "${install_dir}"/"${clone_dir}"/ || { printf "\e[1m\e[31mERROR: Can't cd to %s/%s/, aborting...\e[0m" "${install_dir}" "${clone_dir}"; exit 1; }
+
+if [[ ! "$OFFLINE_MODE" == "true" ]]
+then
+    # Installation of files using git large file storage
+    printf "\n%s\n" "${delimiter}"
+    printf "Checking and retriveing files from Git LFS...\n"
+    git lfs install
+    git lfs pull
+    printf "Git LFS update complete\n"
+    printf "\n%s\n" "${delimiter}"
+
+    # Installation of dependencies using uv
+    printf "\n%s\n" "${delimiter}"
+    printf "Checking and updating dependencies using uv...\n"
+    ${uv_cmd} sync --all-extras
+    printf "Dependency update using uv complete\n"
+    printf "\n%s\n" "${delimiter}"
+
+    # Installation of huggingfacehub command line interface
+    printf "\n%s\n" "${delimiter}"
+    printf "Checking and updating huggingface hub cli...\n"
+    ${uv_cmd} tool install "huggingface_hub[cli]"
+    printf "Huggingface hub cli update complete\n"
+    printf "\n%s\n" "${delimiter}"
+
+    # Download and installation of checkpoints from huggingface
+    printf "\n%s\n" "${delimiter}"
+    printf "Downloading and verifying checkpoints...\n"
+    ${ckpt_install_cmd}
+    printf "Checkpoints installation complete\n"
+    printf "\n%s\n" "${delimiter}"
+
+fi
 
 # Try using TCMalloc on Linux
 prepare_tcmalloc() {
@@ -342,8 +266,12 @@ then
     printf "\n%s\n" "${delimiter}"
 fi
 
+if [[ "$OFFLINE_MODE" == "true" ]]; then
+    export HF_HUB_OFFLINE=1
+fi
+
 printf "\n%s\n" "${delimiter}"
 printf "Launching ${LAUNCH_SCRIPT}..."
 printf "\n%s\n" "${delimiter}"
 prepare_tcmalloc
-"${python_cmd}" -u "${LAUNCH_SCRIPT}" "$@" "--model_dir" "${ckpt_folder}"
+"${uv_cmd}" run "${LAUNCH_SCRIPT}"

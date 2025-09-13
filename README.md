@@ -2,9 +2,9 @@
 Privacy focused local docker environment for [IndexTTS](https://github.com/index-tts/index-tts) Web UI with offline mode support and easy access to files.
 
 ## News
- - Changed docker base images to 12.8.0-cudnn-devel-ubuntu24.04, make sure to run `./build-docker-images.sh` again
- - Updated script to support IndexTTS 1.5, to try out the new models, set `checkpoint="1.5"` in `webui-user.sh`
-
+ - Added support for IndexTTS 2.0, make sure to run `./build-docker-images.sh` and `./run-with-internet.sh`
+ - For legacy IndexTTS 1.0 or 1.5, use the 1.x branch `git fetch && git switch version/1.x`
+ 
 ## Features
 - Easy to install, setup and launch
 - Offline mode, prevents the container from accessing the internet, while still allowing access to the webui

@@ -13,8 +13,10 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get install -y \
             git \
+            git-lfs \
             python3.11-full \
             python3.11-dev \
+            python3.11-distutils \
             gosu \
             locales \
             libgoogle-perftools-dev \
